@@ -1,0 +1,15 @@
+{
+  "allowParens": "avoid",
+  "trailingComma": "es5",
+  "tabWidth": 2,
+  "printWidth": 100,
+  "singleQuote": true,
+  "overrides": [
+    {
+      "files": ["*.json", "*.md"],
+      "options": {
+        "singleQuote": false
+      }
+    }
+  ]
+}
