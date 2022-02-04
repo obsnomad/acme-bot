@@ -5,7 +5,7 @@ import { Issue } from '../../jira';
 export const issue: Command = {
   regexp: /\/issue (.+)/,
   auth: true,
-  callback: async (msg, match, user) => {
+  callback: async (msg, user, match) => {
     const chatId = msg.chat.id;
     const issueKey = match?.[1] ?? '';
 
