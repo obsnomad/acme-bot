@@ -1,5 +1,5 @@
 import { State } from './';
-import { Bot } from '../bot';
+import { sendMessage, setUser } from '../';
 import { User as JiraUser } from '../../jira';
 import { User } from '../../db/entity/user';
 
@@ -10,14 +10,14 @@ export const requestToken: State = {
     const token = msg.text?.trim();
 
     if (!token || !token.match(/^[\w\d]{44}$/)) {
-      await Bot.sendMessage(chatId, 'Неверный формат токена');
+      await sendMessage(chatId, 'Неверный формат токена');
       return false;
     }
 
     const jiraUser = await JiraUser.getCurrent(token);
 
     if (!jiraUser) {
-      await Bot.sendMessage(chatId, 'Не удалось авторизоваться. Попробуй ещё раз.');
+      await sendMessage(chatId, 'Не удалось авторизоваться. Попробуй ещё раз.');
       return false;
     }
 
@@ -35,11 +35,11 @@ export const requestToken: State = {
 
     await user.save();
 
-    await Bot.sendMessage(
+    await sendMessage(
       chatId,
       `${user.displayName}, твои данные сохранены. Можно пользоваться всеми командами :)`
     );
-    await Bot.setUser(chatId, user);
+    await setUser(chatId, user);
 
     return true;
   },

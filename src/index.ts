@@ -2,20 +2,20 @@ import 'dotenv/config';
 import 'reflect-metadata';
 
 import { createConnection } from 'typeorm';
-import { Bot } from './telegram';
+import { startCommandListeners, stopPolling } from './telegram';
 
 (async () => {
   await createConnection();
-  Bot.startCommandListeners();
+  startCommandListeners();
 })();
 
 process.on('uncaughtException', (e) => {
   console.error(e.message);
-  Bot.stopPolling();
+  stopPolling();
 });
 
 process.once('SIGUSR2', () => {
-  Bot.stopPolling(() => {
+  stopPolling(() => {
     process.kill(process.pid, 'SIGUSR2');
   });
 });

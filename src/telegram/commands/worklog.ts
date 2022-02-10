@@ -1,4 +1,4 @@
-import { Bot } from '../';
+import { sendMessage, setState } from '../';
 import { Command } from './';
 import { dateLabels } from '../states/worklog';
 
@@ -8,13 +8,13 @@ export const worklog: Command = {
   callback: async (msg) => {
     const chatId = msg.chat.id;
 
-    await Bot.sendMessage(chatId, 'Выбери день или введи дату в формате DD.MM.YYYY', {
+    await sendMessage(chatId, 'Выбери день или введи дату в формате DD.MM.YYYY', {
       reply_markup: {
         keyboard: [[{ text: dateLabels.prev }, { text: dateLabels.today }]],
       },
     });
 
-    Bot.setState(chatId, {
+    await setState(chatId, {
       type: 'worklog',
     });
   },

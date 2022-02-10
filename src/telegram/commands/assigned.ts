@@ -1,4 +1,4 @@
-import { Bot } from '../';
+import { sendMessage } from '../';
 import { Command } from './';
 import { Issue } from '../../jira';
 
@@ -12,6 +12,6 @@ export const assigned: Command = {
 
     const message = issues.map(String).join('\n');
 
-    await Bot.sendMessage(chatId, message);
+    await sendMessage(chatId, message);
   },
 };

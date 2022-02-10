@@ -1,6 +1,6 @@
-import { Bot } from '../';
+import { sendMessage, setState } from '../';
 import { Command } from './';
-import { getIssuesKeyboard } from '../states';
+import { planKeyboard } from '../states';
 
 export const plan: Command = {
   regexp: /\/plan/,
@@ -8,13 +8,13 @@ export const plan: Command = {
   callback: async (msg, user) => {
     const chatId = msg.chat.id;
 
-    await Bot.sendMessage(
+    await sendMessage(
       chatId,
-      'Выбери задачу из списка открытых, введи номер задачи или название встречи',
-      { reply_markup: { keyboard: await getIssuesKeyboard(user) } }
+      'Выбери задачу из списка открытых, введи номер задачи или название события',
+      await planKeyboard(user)
     );
 
-    Bot.setState(chatId, {
+    await setState(chatId, {
       type: 'plan',
     });
   },

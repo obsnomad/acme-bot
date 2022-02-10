@@ -1,7 +1,8 @@
-import { Bot } from '../';
+import { sendMessage } from '../';
 import { State } from './';
 import { Issue } from '../../jira';
 import moment from 'moment';
+import { removeKeyboard } from '../helpers';
 
 const { JIRA_MEETINGS_ISSUE } = process.env;
 
@@ -35,7 +36,7 @@ export const worklog: State = {
     const workDay = getDate(msg.text?.trim())?.startOf('day');
 
     if (!workDay) {
-      await Bot.sendMessage(chatId, 'Неверный формат даты');
+      await sendMessage(chatId, 'Неверный формат даты');
       return false;
     }
 
@@ -62,7 +63,7 @@ export const worklog: State = {
       formatted.rows.join('\n') +
       `\nЗатрачено времени: ${(formatted.timeSpent / 3600).toFixed(2)}ч`;
 
-    await Bot.sendMessage(msg.chat.id, message, { reply_markup: { remove_keyboard: true } });
+    await sendMessage(msg.chat.id, message, removeKeyboard());
 
     return true;
   },

@@ -2,6 +2,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import commands from './commands';
 import states, { AvailableState } from './states';
 import { User } from '../db/entity/user';
+import { removeKeyboard } from './helpers';
 
 const { TELEGRAM_TOKEN = '' } = process.env;
 
@@ -10,129 +11,113 @@ interface UserParams {
   state?: AvailableState;
 }
 
-export class Bot {
-  protected static _instance: TelegramBot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
-  protected static _users: Map<TelegramBot.ChatId, UserParams> = new Map();
+const bot: TelegramBot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+const users: Map<TelegramBot.ChatId, UserParams> = new Map();
 
-  constructor() {
-    if (Bot._instance) {
-      throw new Error('Instantiation failed: use Singleton.getInstance() instead of new.');
-    }
+export const getState = async (chatId: TelegramBot.ChatId) => {
+  const user = await findUser(chatId);
+  return user?.state;
+};
+
+export const setState = async (chatId: TelegramBot.ChatId, state: AvailableState) => {
+  const user = await findUser(chatId);
+  if (user) {
+    user.state = state;
   }
+};
 
-  public static getInstance(): TelegramBot {
-    return Bot._instance;
+export const clearState = async (chatId: TelegramBot.ChatId) => {
+  const user = await findUser(chatId);
+  if (user) {
+    delete user.state;
   }
+};
 
-  public static getState(chatId: TelegramBot.ChatId) {
-    return Bot._users.get(chatId)?.state;
-  }
+export const sendMessage = async (
+  chatId: TelegramBot.ChatId,
+  message: string,
+  options: TelegramBot.SendMessageOptions = {}
+): Promise<TelegramBot.Message> => {
+  return await bot.sendMessage(chatId, message, {
+    parse_mode: 'HTML',
+    ...options,
+  });
+};
 
-  public static setState(chatId: TelegramBot.ChatId, state: AvailableState) {
-    const user = Bot._users.get(chatId);
+export const stopPolling = (callback?: () => void) => {
+  bot.stopPolling().then(callback);
+};
+
+export const findUser = async (chatId: TelegramBot.ChatId) => {
+  if (!users.has(chatId)) {
+    const user = await User.findOne({ where: { chatId } });
     if (user) {
-      user.state = state;
+      setUser(chatId, user);
     }
   }
+  return users.get(chatId);
+};
 
-  public static clearState(chatId: TelegramBot.ChatId) {
-    const user = Bot._users.get(chatId);
-    if (user) {
-      delete user.state;
-    }
+export const setUser = (chatId: TelegramBot.ChatId, user: User) => {
+  users.set(chatId, { user });
+};
+
+export const checkUser = async (chatId: TelegramBot.ChatId): Promise<User | void> => {
+  const user = await findUser(chatId);
+
+  if (user) {
+    return user.user;
   }
 
-  public static async sendMessage(
-    chatId: TelegramBot.ChatId,
-    message: string,
-    options: TelegramBot.SendMessageOptions = {}
-  ): Promise<TelegramBot.Message> {
-    return await Bot._instance.sendMessage(chatId, message, {
-      parse_mode: 'HTML',
-      ...options,
-    });
-  }
+  await sendMessage(chatId, 'Чтобы использовать эту команду, зарегистрируйся командой /register.');
+};
 
-  public static stopPolling(callback?: () => void) {
-    Bot._instance.stopPolling().then(callback);
-  }
-
-  public static async findUser(chatId: TelegramBot.ChatId) {
-    if (!Bot._users.has(chatId)) {
-      const user = await User.findOne({ where: { chatId } });
-      if (user) {
-        Bot.setUser(chatId, user);
-      }
-    }
-    return Bot._users.get(chatId);
-  }
-
-  public static setUser(chatId: TelegramBot.ChatId, user: User) {
-    Bot._users.set(chatId, { user });
-  }
-
-  private static async checkUser(chatId: TelegramBot.ChatId): Promise<User | void> {
-    const user = await Bot.findUser(chatId);
-
-    if (user) {
-      return user.user;
-    }
-
-    await Bot.sendMessage(
-      chatId,
-      'Чтобы использовать эту команду, зарегистрируйся командой /register.'
-    );
-  }
-
-  public static startCommandListeners() {
-    commands.forEach((command) => {
-      Bot._instance.onText(command.regexp, async (msg, match) => {
-        const chatId = msg.chat.id;
-
-        Bot.clearState(chatId);
-
-        if (command.auth) {
-          const user = await Bot.checkUser(chatId);
-          if (!user) {
-            return;
-          }
-          command.callback(msg, user, match);
-        } else {
-          command.callback(msg, match);
-        }
-      });
-    });
-    Bot._instance.on('message', async (msg) => {
+export const startCommandListeners = () => {
+  commands.forEach((command) => {
+    bot.onText(command.regexp, async (msg, match) => {
       const chatId = msg.chat.id;
 
-      if (msg.text === '/exit') {
-        await Bot.sendMessage(chatId, 'Хорошо, давай поговорим о чём-то другом', {
-          reply_markup: { remove_keyboard: true },
-        });
-        Bot.clearState(chatId);
-        return;
-      }
+      await clearState(chatId);
 
-      const state = Bot.getState(chatId);
-
-      if (state) {
-        const stateObj = states[state.type];
-        let finished;
-
-        if (stateObj.auth) {
-          const user = await Bot.checkUser(msg.chat.id);
-          if (!user) {
-            return;
-          }
-          finished = await stateObj.callback(msg, user, state.params);
-        } else {
-          finished = await stateObj.callback(msg, state.params);
+      if (command.auth) {
+        const user = await checkUser(chatId);
+        if (!user) {
+          return;
         }
-
-        if (finished) {
-          Bot.clearState(chatId);
-        }
+        command.callback(msg, user, match);
+      } else {
+        command.callback(msg, match);
       }
     });
-  }
-}
+  });
+  bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+
+    if (msg.text === '/exit') {
+      await sendMessage(chatId, 'Хорошо, давай поговорим о чём-то другом', removeKeyboard());
+      await clearState(chatId);
+      return;
+    }
+
+    const state = await getState(chatId);
+
+    if (state) {
+      const stateObj = states[state.type];
+      let finished;
+
+      if (stateObj.auth) {
+        const user = await checkUser(msg.chat.id);
+        if (!user) {
+          return;
+        }
+        finished = await stateObj.callback(msg, user, state.params);
+      } else {
+        finished = await stateObj.callback(msg, state.params);
+      }
+
+      if (finished) {
+        await clearState(chatId);
+      }
+    }
+  });
+};

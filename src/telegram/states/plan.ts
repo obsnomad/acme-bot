@@ -1,33 +1,17 @@
-import TelegramBot from 'node-telegram-bot-api';
 import moment from 'moment';
-import { Bot } from '../';
-import { User } from '../../db/entity/user';
+import { getState, sendMessage, setState } from '../';
 import { State } from './';
 import { Issue } from '../../jira';
+import { User } from '../../db/entity/user';
+import { issuesKeyboard, removeKeyboard } from '../helpers';
 
-const ISSUES_PER_KEYBOARD_ROW = 3;
 const FINISH_MESSAGE = 'Завершить';
 
-export const getIssuesKeyboard = async (
-  user: User,
-  excludeKeys?: string[]
-): Promise<TelegramBot.KeyboardButton[][]> => {
-  const issues = await Issue.getAssigned(user.token);
-  issues.push({ key: FINISH_MESSAGE });
-  return issues.reduce((keyboard: TelegramBot.KeyboardButton[][], issue: Issue) => {
-    if (excludeKeys && excludeKeys.includes(issue.key)) {
-      return keyboard;
-    }
-    if (
-      keyboard.length === 0 ||
-      keyboard[keyboard.length - 1]?.length === ISSUES_PER_KEYBOARD_ROW
-    ) {
-      keyboard.push([]);
-    }
-    keyboard[keyboard.length - 1]?.push({ text: issue.key });
-    return keyboard;
-  }, [] as TelegramBot.KeyboardButton[][]);
-};
+export const keyboard = async (user: User, excludeKeys?: string[]) => ({
+  reply_markup: {
+    keyboard: [...(await issuesKeyboard(user, excludeKeys)), [{ text: FINISH_MESSAGE }]],
+  },
+});
 
 export const plan: State = {
   auth: true,
@@ -35,16 +19,16 @@ export const plan: State = {
     const chatId = msg.chat.id;
     const reply = msg.text;
 
-    const state = Bot.getState(chatId);
+    const state = await getState(chatId);
 
     if (state) {
-      const items = (state?.params?.['items'] ?? []) as (Issue | string)[];
+      const items = (state.params?.['items'] ?? []) as (Issue | string)[];
 
       if (reply === FINISH_MESSAGE) {
         items.sort((a, b) => Number(b instanceof Issue) - Number(a instanceof Issue));
 
         const message = `<b>${moment().format('DD.MM.YYYY')}</b>\n` + items.map(String).join('\n');
-        await Bot.sendMessage(chatId, message, { reply_markup: { remove_keyboard: true } });
+        await sendMessage(chatId, message, removeKeyboard());
 
         return true;
       }
@@ -55,7 +39,7 @@ export const plan: State = {
         );
 
         if (issues.includes(reply)) {
-          await Bot.sendMessage(chatId, `Задача уже есть в списке`);
+          await sendMessage(chatId, `Задача уже есть в списке`);
           return false;
         }
 
@@ -63,19 +47,17 @@ export const plan: State = {
 
         if (issue) {
           items.push(issue);
-          Bot.setState(chatId, { ...state, params: { items } });
+          await setState(chatId, { ...state, params: { items } });
 
-          await Bot.sendMessage(chatId, `Добавлена задача ${issue}`, {
-            reply_markup: {
-              keyboard: await getIssuesKeyboard(user, issues),
-            },
-          });
+          await sendMessage(chatId, `Добавлена задача ${issue}`, await keyboard(user, issues));
+        } else {
+          await sendMessage(chatId, 'Задача не найдена');
         }
       } else if (reply) {
         items.push(reply);
-        Bot.setState(chatId, { ...state, params: { items } });
+        await setState(chatId, { ...state, params: { items } });
 
-        await Bot.sendMessage(chatId, `Добавлено событие`);
+        await sendMessage(chatId, 'Добавлено событие');
       }
     }
 

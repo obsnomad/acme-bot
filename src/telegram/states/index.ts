@@ -3,8 +3,10 @@ import { User } from '../../db/entity/user';
 import { requestToken } from './requestToken';
 import { worklog } from './worklog';
 import { plan } from './plan';
+import { track } from './track';
 
-export { getIssuesKeyboard } from './plan';
+export { keyboard as planKeyboard } from './plan';
+export { keyboard as trackKeyboard } from './track';
 
 export interface StateParams {
   [key: string]: any;
@@ -22,7 +24,7 @@ export interface StateWihAuth {
 
 export type State = StateWithoutAuth | StateWihAuth;
 
-const states = { requestToken, worklog, plan };
+const states = { requestToken, worklog, plan, track };
 
 export type AvailableState = {
   type: keyof typeof states;
