@@ -4,7 +4,7 @@ import { User } from './user';
 
 const { JIRA_URL = '' } = process.env;
 
-interface Worklog {
+export interface Worklog {
   author: User;
   started: string;
   comment: string;
@@ -69,6 +69,11 @@ export class Issue {
     return `<a href="${link}">${key}</a> ${name}`;
   }
 
+  public toCleanString() {
+    const { key, name } = this;
+    return `[${key}] ${name}`;
+  }
+
   public static async getOne(id: string | number, token: JiraToken) {
     try {
       return new Issue(await request(`issue/${id}`, token));
@@ -82,7 +87,9 @@ export class Issue {
     const withWorklogs = async (issue: IssueData) => {
       const worklog = await request(`issue/${issue.key}/worklog`, token, {
         startedAfter: Number(date),
+        expand: 'wlType',
       });
+      console.log(worklog);
       worklog.worklogs = worklog.worklogs.map(worklogMapper).filter(limitToUserAndDate);
       issue.fields.worklog = worklog;
       return issue;

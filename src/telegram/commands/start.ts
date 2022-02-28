@@ -1,14 +1,20 @@
-import { sendMessage } from '../';
-import TelegramBot from 'node-telegram-bot-api';
+import { Message } from 'node-telegram-bot-api';
+import { findUser, sendMessage } from '../';
 import { Command } from './';
 
 export const start: Command = {
-  regexp: /\/start/,
   auth: false,
-  callback: async (msg: TelegramBot.Message) =>
-    await sendMessage(
-      msg.chat.id,
-      'Привет! Похоже, мы незнакомы.' +
-        ' Чтобы получать данные из JIRA, пройди регистрацию командой /register.'
-    ),
+  callback: async ({ chat: { id: chatId } }: Message) => {
+    const user = await findUser(chatId);
+
+    if (user) {
+      await sendMessage(
+        chatId,
+        'И снова привет! Если давно не заходил, рекомендую сразу обновить авторизацию.'
+      );
+      return;
+    }
+
+    await sendMessage(chatId, 'Привет! Похоже, мы незнакомы. Сначала нужно авторизоваться.');
+  },
 };

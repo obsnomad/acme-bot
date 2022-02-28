@@ -1,2 +1,2 @@
-export { Issue } from './issue';
-export { User } from './user';
+export * from './issue';
+export * from './user';

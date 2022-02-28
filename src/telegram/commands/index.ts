@@ -1,24 +1,29 @@
-import TelegramBot from 'node-telegram-bot-api';
+import { Message } from 'node-telegram-bot-api';
 import { User } from '../../db/entity/user';
 import { start } from './start';
-import { register } from './register';
+import { auth } from './auth';
 import { assigned } from './assigned';
 import { worklog } from './worklog';
 import { plan } from './plan';
 import { track } from './track';
 
 export interface CommandWithoutAuth {
-  regexp: RegExp;
   auth: false;
-  callback: (msg: TelegramBot.Message, match: RegExpExecArray | null) => void;
+  callback: (msg: Message) => void;
+  stateCallback?: (msg: Message) => void;
 }
 
 export interface CommandWihAuth {
-  regexp: RegExp;
   auth: true;
-  callback: (msg: TelegramBot.Message, user: User, match: RegExpExecArray | null) => void;
+  callback: (msg: Message, user: User) => void;
+  stateCallback?: (msg: Message, user: User) => void;
 }
 
 export type Command = CommandWithoutAuth | CommandWihAuth;
+export type CommandWithState = Command & { fromState?: boolean };
 
-export default [start, register, assigned, worklog, plan, track];
+const commands = { start, auth, assigned, worklog, plan, track };
+
+export type AvailableCommand = keyof typeof commands;
+
+export default commands;
